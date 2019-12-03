@@ -1,7 +1,7 @@
 import 'source-map-support/register';
 import fs from 'fs';
 import path from 'path';
-import { app, crashReporter, globalShortcut } from 'electron';
+import { app, crashReporter, globalShortcut, nativeImage, powerMonitor} from 'electron';
 import electronDownload from 'electron-dl';
 
 import createLoginWindow from './components/login/loginWindow';
@@ -180,3 +180,58 @@ app.on('login', (event, webContents, request, authInfo, callback) => {
     createLoginWindow(callback);
   }
 });
+
+
+/**
+ * Prints current date on an empty calendar icon
+ * Then callback function to update Electron icon (electron.app.dock.setIcon(image))
+ * @param callbackSetIcon
+ */
+const jimp = require('jimp');
+function getCurrentDateIcon(callbackSetIcon){
+  var emptyCalendarFile = path.join(__dirname,'emptyCalendarIcon.png');
+  var loadedEmptyCalendar;
+  var currentDateString = new Date().getDate().toString(); // gets current date
+  // loads empty calendar icon 
+  jimp.read(emptyCalendarFile) 
+    .then(function (image) {
+      loadedEmptyCalendar = image;
+      // loads jimp font 
+      return jimp.loadFont(jimp.FONT_SANS_128_WHITE) 
+    })
+    .then(function (font) {
+     // prints current date on the empty calendar icon 
+     return loadedEmptyCalendar.print(font, 100, 100, currentDateString)
+    })
+    .then( function (img) {
+      // gets the image buffer...
+      img.getBuffer(jimp.MIME_PNG, (err, bufferImg) => {
+        // ... and callback the function to edit the Electron app dock icon
+        callbackSetIcon(bufferImg)
+      })
+    });
+}
+
+// when the app is launched
+app.on('activate', () => {
+  getCurrentDateIcon( function (bufferImg){
+    // Create a native image and set it as dock icon
+    app.dock.setIcon(nativeImage.createFromBuffer(bufferImg))
+  })
+})
+
+// when the screen wakes up
+powerMonitor.on('resume', () => {
+  getCurrentDateIcon( function (bufferImg){
+    // Create a native image and set it as dock icon
+    app.dock.setIcon(nativeImage.createFromBuffer(bufferImg))
+  })
+})
+
+// when user unlocked their mac
+powerMonitor.on('unlock-screen', () => {
+  getCurrentDateIcon( function (bufferImg){
+    // Create a native image and set it as dock icon
+    app.dock.setIcon(nativeImage.createFromBuffer(bufferImg))
+  })
+})
