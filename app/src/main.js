@@ -189,7 +189,7 @@ app.on('login', (event, webContents, request, authInfo, callback) => {
  */
 const jimp = require('jimp');
 function getCurrentDateIcon(callbackSetIcon){
-  var emptyCalendarFile = path.join(__dirname,'emptyCalendarIcon.png');
+  var emptyCalendarFile = path.join(__dirname,'CalendarEmptyLogo.png');
   var loadedEmptyCalendar;
   var currentDateString = new Date().getDate().toString(); // gets current date
   // loads empty calendar icon 
