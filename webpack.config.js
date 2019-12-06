@@ -6,6 +6,7 @@ electronPublicApi.forEach((apiString) => {
 });
 
 module.exports = {
+  entry: ['babel-polyfill', './app/src/main.js'],
   target: 'node',
   output: {
     filename: 'main.js',

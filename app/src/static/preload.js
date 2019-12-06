@@ -20,6 +20,7 @@ import fs from 'fs'; // eslint-disable-line import/first
 
 const INJECT_JS_PATH = path.join(__dirname, '../../', 'inject/inject.js');
 const log = require('loglevel');
+const notifier = require('node-notifier');
 /**
  * Patches window.Notification to:
  * - set a callback on a new Notification
@@ -28,18 +29,48 @@ const log = require('loglevel');
  * @param clickCallback
  */
 function setNotificationCallback(createCallback, clickCallback) {
-  const OldNotify = window.Notification;
-  const newNotify = (title, opt) => {
+  var OldNotify = window.Notification;
+  var newNotify = function newNotify(title, opt) {
+
+    function sendAlternativeNotification() {
+      notifier.notify(
+        {
+          title: title,
+          message: opt.body,
+          icon: path.join(__dirname, './originalCalendarIcon.png'),
+          timeout: 7200,
+          sound: 'Funk',
+          actions: 'Snooze'
+        },
+        function (error, response, metadata) {
+          if (metadata.activationType === 'contentsClicked') {
+            // ... call nativefier's clickCallback function (will show the app if it's closed)
+            clickCallback(response, metadata);
+            // else if an action is clicked and the action is "Snooze"
+          } else if (metadata.activationType === 'actionClicked' && metadata.activationValue === 'Snooze') {
+            // wait five minutes...
+            setTimeout(function () {
+              // ...and resend the notification
+              sendAlternativeNotification();
+            }, 300000);
+          }
+        });
+      }
+
+    // send the alternative notification
+    sendAlternativeNotification();
     createCallback(title, opt);
-    const instance = new OldNotify(title, opt);
-    instance.addEventListener('click', clickCallback);
-    return instance;
+    // avoid the native notification to be sent
+    return null;
   };
+  
+  // nativefier code
   newNotify.requestPermission = OldNotify.requestPermission.bind(OldNotify);
   Object.defineProperty(newNotify, 'permission', {
-    get: () => OldNotify.permission,
-  });
-
+    get: function get() {
+      return OldNotify.permission;
+    }
+  });  
   window.Notification = newNotify;
 }
 

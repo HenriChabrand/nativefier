@@ -1,8 +1,9 @@
 import 'source-map-support/register';
 import fs from 'fs';
 import path from 'path';
-import { app, crashReporter, globalShortcut, nativeImage, powerMonitor} from 'electron';
+import electron from 'electron'; //  load electron as powerMonitor can't be required before app is ready
 import electronDownload from 'electron-dl';
+import jimp from 'jimp';
 
 import createLoginWindow from './components/login/loginWindow';
 import createMainWindow from './components/mainWindow/mainWindow';
@@ -10,12 +11,14 @@ import createTrayIcon from './components/trayIcon/trayIcon';
 import helpers from './helpers/helpers';
 import inferFlash from './helpers/inferFlash';
 
+
+
 const electronSquirrelStartup = require('electron-squirrel-startup');
 
 // Entrypoint for electron-squirrel-startup.
 // See https://github.com/jiahaog/nativefier/pull/744 for sample use case
 if (electronSquirrelStartup) {
-  app.exit();
+  electron.app.exit();
 }
 
 const { isOSX } = helpers;
@@ -36,41 +39,41 @@ if (appArgs.processEnvs) {
 let mainWindow;
 
 if (typeof appArgs.flashPluginDir === 'string') {
-  app.commandLine.appendSwitch('ppapi-flash-path', appArgs.flashPluginDir);
+  electron.app.commandLine.appendSwitch('ppapi-flash-path', appArgs.flashPluginDir);
 } else if (appArgs.flashPluginDir) {
   const flashPath = inferFlash();
-  app.commandLine.appendSwitch('ppapi-flash-path', flashPath);
+  electron.app.commandLine.appendSwitch('ppapi-flash-path', flashPath);
 }
 
 if (appArgs.ignoreCertificate) {
-  app.commandLine.appendSwitch('ignore-certificate-errors');
+  electron.app.commandLine.appendSwitch('ignore-certificate-errors');
 }
 
 if (appArgs.disableGpu) {
-  app.disableHardwareAcceleration();
+  electron.app.disableHardwareAcceleration();
 }
 
 if (appArgs.ignoreGpuBlacklist) {
-  app.commandLine.appendSwitch('ignore-gpu-blacklist');
+  electron.app.commandLine.appendSwitch('ignore-gpu-blacklist');
 }
 
 if (appArgs.enableEs3Apis) {
-  app.commandLine.appendSwitch('enable-es3-apis');
+  electron.app.commandLine.appendSwitch('enable-es3-apis');
 }
 
 if (appArgs.diskCacheSize) {
-  app.commandLine.appendSwitch('disk-cache-size', appArgs.diskCacheSize);
+  electron.app.commandLine.appendSwitch('disk-cache-size', appArgs.diskCacheSize);
 }
 
 if (appArgs.basicAuthUsername) {
-  app.commandLine.appendSwitch(
+  electron.app.commandLine.appendSwitch(
     'basic-auth-username',
     appArgs.basicAuthUsername,
   );
 }
 
 if (appArgs.basicAuthPassword) {
-  app.commandLine.appendSwitch(
+  electron.app.commandLine.appendSwitch(
     'basic-auth-password',
     appArgs.basicAuthPassword,
   );
@@ -83,19 +86,19 @@ if (isOSX()) {
   let currentBadgeCount = 0;
 
   setDockBadge = (count, bounce = false) => {
-    app.dock.setBadge(count);
-    if (bounce && count > currentBadgeCount) app.dock.bounce();
+    electron.app.dock.setBadge(count);
+    if (bounce && count > currentBadgeCount) electron.app.dock.bounce();
     currentBadgeCount = count;
   };
 }
 
-app.on('window-all-closed', () => {
+electron.app.on('window-all-closed', () => {
   if (!isOSX() || appArgs.fastQuit) {
-    app.quit();
+    electron.app.quit();
   }
 });
 
-app.on('activate', (event, hasVisibleWindows) => {
+electron.app.on('activate', (event, hasVisibleWindows) => {
   if (isOSX()) {
     // this is called when the dock is clicked
     if (!hasVisibleWindows) {
@@ -104,7 +107,7 @@ app.on('activate', (event, hasVisibleWindows) => {
   }
 });
 
-app.on('before-quit', () => {
+electron.app.on('before-quit', () => {
   // not fired when the close button on the window is clicked
   if (isOSX()) {
     // need to force a quit as a workaround here to simulate the osx app hiding behaviour
@@ -112,13 +115,13 @@ app.on('before-quit', () => {
     // e.prevent default appears to persist
 
     // might cause issues in the future as before-quit and will-quit events are not called
-    app.exit(0);
+    electron.app.exit(0);
   }
 });
 
 if (appArgs.crashReporter) {
-  app.on('will-finish-launching', () => {
-    crashReporter.start({
+  electron.app.on('will-finish-launching', () => {
+    electron.crashReporter.start({
       companyName: appArgs.companyName || '',
       productName: appArgs.name,
       submitURL: appArgs.crashReporter,
@@ -128,11 +131,11 @@ if (appArgs.crashReporter) {
 }
 
 // quit if singleInstance mode and there's already another instance running
-const shouldQuit = appArgs.singleInstance && !app.requestSingleInstanceLock();
+const shouldQuit = appArgs.singleInstance && !electron.app.requestSingleInstanceLock();
 if (shouldQuit) {
-  app.quit();
+  electron.app.quit();
 } else {
-  app.on('second-instance', () => {
+  electron.app.on('second-instance', () => {
     if (mainWindow) {
       if (!mainWindow.isVisible()) {
         // try
@@ -146,14 +149,14 @@ if (shouldQuit) {
     }
   });
 
-  app.on('ready', () => {
-    mainWindow = createMainWindow(appArgs, app.quit, setDockBadge);
+  electron.app.on('ready', () => {
+    mainWindow = createMainWindow(appArgs, electron.app.quit, setDockBadge);
     createTrayIcon(appArgs, mainWindow);
 
     // Register global shortcuts
     if (appArgs.globalShortcuts) {
       appArgs.globalShortcuts.forEach((shortcut) => {
-        globalShortcut.register(shortcut.key, () => {
+        electron.globalShortcut.register(shortcut.key, () => {
           shortcut.inputEvents.forEach((inputEvent) => {
             mainWindow.webContents.sendInputEvent(inputEvent);
           });
@@ -163,11 +166,11 @@ if (shouldQuit) {
   });
 }
 
-app.on('new-window-for-tab', () => {
+electron.app.on('new-window-for-tab', () => {
   mainWindow.emit('new-tab');
 });
 
-app.on('login', (event, webContents, request, authInfo, callback) => {
+electron.app.on('login', (event, webContents, request, authInfo, callback) => {
   // for http authentication
   event.preventDefault();
 
@@ -182,26 +185,32 @@ app.on('login', (event, webContents, request, authInfo, callback) => {
 });
 
 
+
 /**
  * Prints current date on an empty calendar icon
  * Then callback function to update Electron icon (electron.app.dock.setIcon(image))
  * @param callbackSetIcon
  */
-const jimp = require('jimp');
 function getCurrentDateIcon(callbackSetIcon){
-  var emptyCalendarFile = path.join(__dirname,'CalendarEmptyLogo.png');
+
+
+  var emptyCalendarFile = path.join(__dirname,'./static/CalendarEmptyLogo.png');
   var loadedEmptyCalendar;
-  var currentDateString = new Date().getDate().toString(); // gets current date
-  // loads empty calendar icon 
-  jimp.read(emptyCalendarFile) 
+  // gets current date
+  var currentDateString = new Date().getDate().toString();
+  // defines X offset to center the date
+  var offsetX = (currentDateString.length < 2) ? 185  : 120;
+
+  // loads empty calendar icon
+  jimp.read(emptyCalendarFile)
     .then(function (image) {
       loadedEmptyCalendar = image;
-      // loads jimp font 
-      return jimp.loadFont(jimp.FONT_SANS_128_WHITE) 
+      // loads jimp font
+      return jimp.loadFont(path.join(__dirname, './static/fonts/roboto-250-white/roboto-250-white.fnt'))
     })
     .then(function (font) {
-     // prints current date on the empty calendar icon 
-     return loadedEmptyCalendar.print(font, 100, 100, currentDateString)
+     // prints current date on the empty calendar icon
+     return loadedEmptyCalendar.print(font, offsetX, 199, currentDateString)
     })
     .then( function (img) {
       // gets the image buffer...
@@ -212,26 +221,41 @@ function getCurrentDateIcon(callbackSetIcon){
     });
 }
 
+
+
 // when the app is launched
-app.on('activate', () => {
+electron.app.on('activate', () => {
   getCurrentDateIcon( function (bufferImg){
     // Create a native image and set it as dock icon
-    app.dock.setIcon(nativeImage.createFromBuffer(bufferImg))
+     electron.app.dock.setIcon(electron.nativeImage.createFromBuffer(bufferImg))
   })
 })
 
-// when the screen wakes up
-powerMonitor.on('resume', () => {
+// wait the app is ready
+electron.app.on('ready', () => {
+
   getCurrentDateIcon( function (bufferImg){
     // Create a native image and set it as dock icon
-    app.dock.setIcon(nativeImage.createFromBuffer(bufferImg))
+    electron.app.dock.setIcon(electron.nativeImage.createFromBuffer(bufferImg))
+  })
+
+  // when the screen wakes up
+  electron.powerMonitor.on('resume', () => {
+    getCurrentDateIcon( function (bufferImg){
+      // Create a native image and set it as dock icon
+      electron.app.dock.setIcon(electron.nativeImage.createFromBuffer(bufferImg))
+    })
+  })
+
+  // when user unlocked their mac
+  electron.powerMonitor.on('unlock-screen', () => {
+    getCurrentDateIcon( function (bufferImg){
+      // Create a native image and set it as dock icon
+      electron.app.dock.setIcon(electron.nativeImage.createFromBuffer(bufferImg))
+    })
   })
 })
 
-// when user unlocked their mac
-powerMonitor.on('unlock-screen', () => {
-  getCurrentDateIcon( function (bufferImg){
-    // Create a native image and set it as dock icon
-    app.dock.setIcon(nativeImage.createFromBuffer(bufferImg))
-  })
-})
+
+
+
