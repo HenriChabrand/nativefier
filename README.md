@@ -30,4 +30,3 @@ Creating a native Google Calendar desktop app:
 ```bash
 npm run build-and-package-app
 ```
-git clone https://github.com/HenriChabrand/nativefiergit clone https://github.com/HenriChabrand/nativefier
