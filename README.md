@@ -16,7 +16,7 @@ Build a native Google Calendar app for macOS – based on the amazing work of [J
 ### Requirements
 
 - macOS 10.9+ / Windows / Linux
-- [Node.js](https://nodejs.org/) `>=6` (4.x may work but is no longer tested, please upgrade)
+- [Node.js](https://nodejs.org/) `>=6` (works fine with `node 10.17.0` and `glup 3.9.0`)
 - See [optional dependencies](#optional-dependencies) for more.
 
 ```bash
@@ -30,3 +30,4 @@ Creating a native Google Calendar desktop app:
 ```bash
 npm run build-and-package-app
 ```
+git clone https://github.com/HenriChabrand/nativefiergit clone https://github.com/HenriChabrand/nativefier
